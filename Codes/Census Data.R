@@ -31,19 +31,117 @@ Sys.getenv("census_api_key")
 
 ##To explore fields available in the ACS
 census_variables<-load_variables(2020, "pl")
-acs_variables<-load_variables(2019, "acs5")
+acs_variables<-load_variables(2020, "acs5")
 
-write.csv(census_variables,"2020 Census Variables.csv", row.names = FALSE)
+
+
+
+
+Sys.getenv("census_api_key")
+
+##To explore fields available in the ACS
+census_variables<-load_variables(2020, "pl")
+#acs_variables<-load_variables(2019, "acs5")
+
+###Pull 2020 Census Data
+
+##Geographic Level (county, state, tract, zcta (ZIP), block group, congressional district, public use microdata area)
+geoLevel='block'  ##Zip Codes with approximate tabulation areas (ZIP codes are not actual polygons)
+state="North Carolina"
+county="Durham"
+variables<-c("P1_003N","P1_004N","P1_005N","P1_006N","P1_007N","P1_008N",
+             "P2_001N","P2_002N","P2_003N","P2_005N")
+year=2020
+
+Durham_Block_Data<-get_decennial(geography = geoLevel,
+                                 variables = variables,
+                                 year=year,
+                                 county=county,
+                                 state=state,
+                                 geometry = FALSE,cache_table = TRUE)%>%
+  pivot_wider(names_from=variable, values_from=value)%>%
+  dplyr::rename("White Alone"=3,
+                "Black Alone"=4,
+                "American Indian Alone"=5,
+                "Asian Alone"=6,
+                "Pacific Islander/Hawaiian Alone"=7,
+                "Other Alone"=8,
+                "Total Pop Hispanic Tables"=9,
+                "Total Hispanic"=10,
+                "Total Non-Hispanic"=11,
+                "Non Hispanic White"=12)
+
+Durham_Block<-get_decennial(geography = geoLevel,
+                            variables = "P1_001N",
+                            year=year,
+                            county=county,
+                            state=state,
+                            geometry = TRUE,cache_table = TRUE)%>%
+  left_join(Durham_Block_Data, by="GEOID")%>%
+  dplyr::select(-3,-6)%>%
+  dplyr::rename("NAME"=2,
+                "Total Population"=3)
+
+
+
+Durham_Block_Group_Data<-get_decennial(geography = "block group",
+                                       variables = variables,
+                                       year=year,
+                                       county=county,
+                                       state=state,
+                                       geometry = FALSE,cache_table = TRUE)%>%
+  pivot_wider(names_from=variable, values_from=value)%>%
+  dplyr::rename("White Alone"=3,
+                "Black Alone"=4,
+                "American Indian Alone"=5,
+                "Asian Alone"=6,
+                "Pacific Islander/Hawaiian Alone"=7,
+                "Other Alone"=8,
+                "Total Pop Hispanic Tables"=9,
+                "Total Hispanic"=10,
+                "Total Non-Hispanic"=11,
+                "Non Hispanic White"=12)
+
+
+Durham_Block_Group<-get_decennial(geography = "block group",
+                                  variables = "P1_001N",
+                                  year=year,
+                                  county=county,
+                                  state=state,
+                                  geometry = TRUE,cache_table = TRUE)%>%
+  left_join(Durham_Block_Group_Data, by="GEOID")%>%
+  dplyr::select(-3,-6)%>%
+  dplyr::rename("NAME"=2,
+                "Total Population"=3)
+
+Durham_Block_Join<-Durham_Block%>% st_as_sf()%>%
+  st_transform(4326) %>%
+  st_join(dev_tiers, left=TRUE,largest=TRUE, join=st_contains())
+
+Durham_Block_Group_Join<-Durham_Block_Group%>% st_as_sf()%>%
+  st_transform(4326) %>%
+  st_join(dev_tiers, left=TRUE,largest=TRUE, join=st_contains())
+
+setwd("C:/Users/rcarder/Documents/dev/DurhamData")
+
+st_write(Durham_Block_Join, "Durham_Block_2020_Census.geojson")
+st_write(Durham_Block_Group_Join, "Durham_BlockGroup_2020_Census.geojson")
+
+#st_crs(Durham_Block)
+#st_crs(dev_tiers)
+
+
+
 
 ###Choose Geography Options###
 
 ##Geographic Level (county, state, tract, zcta (ZIP), block group, congressional district, public use microdata area)
 geoLevel='block group'  ##Zip Codes with approximate tabulation areas (ZIP codes are not actual polygons)
 state="North Carolina"
-county="Durham County"
+county="Durham"
 sumfile = 'acs5'
 
-acs_race_variables<-c(sapply(seq(1,10,1), function(v) return(paste("B02001_",str_pad(v,3,pad ="0"),sep=""))),"B03002_001","B03002_002","B03002_003","B03002_012","B03002_013")
+acs_race_variables<-c(sapply(seq(2,7,1), function(v) return(paste("B02001_",str_pad(v,3,pad ="0"),sep=""))),"B03002_001","B03002_002","B03002_003", "B03002_012")
 acs_income_poverty_variables<-c("B19083_001",'B19301_001', 'B17021_001', 'B17021_002')
 acs_language_variables<-c('B16001_001', 'B16001_002', 'B16001_003', 'B16001_004', 'B16001_005')
 acs_rent_cost_variables<-c(sapply(seq(1,27,1), function(v) return(paste("B25063_",str_pad(v,3,pad ="0"),sep=""))))
@@ -52,30 +150,70 @@ acs_income_to_poverty_variables<-c(sapply(seq(1,13,1), function(v) return(paste(
 acs_housing_costs_variables<-c(sapply(seq(1,17,1), function(v) return(paste("B25104_",str_pad(v,3,pad ="0"),sep=""))))
 
 
+all_variables<-as.data.frame(c(acs_race_variables,acs_income_poverty_variables,acs_language_variables,acs_rent_cost_variables,acs_rent_percent_income_variables,acs_income_to_poverty_variables,acs_housing_costs_variables))%>%
+  dplyr::rename("name"=1)%>%
+  left_join(acs_variables)
+
+variables_join<-all_variables%>%
+  mutate(label=str_remove(label,"Estimate!!"))%>%
+  mutate(label=str_remove(label,"Total:!!"),
+         word=word(concept,1,5))%>%
+  mutate(label=ifelse(str_detect(label,"Total:"),paste(label,word),label))%>%
+  dplyr::select(1,2)%>%
+  dplyr::rename("variable"=1)
 
 
-acs_call_geo<-get_acs(geography = geoLevel,
-                              variables = c("B01001_001"),
-                              year=2019,
-                              county=county,
-                              state=state,
-                              geometry = TRUE)
 
 
 acs_call_table <- get_acs(geography = geoLevel,
                           variables = c(acs_race_variables,
                                   acs_income_poverty_variables,
                                   #acs_housing_costs_variables,
-                                  acs_rent_cost_variables),
-                          year = 2019,
+                                  acs_rent_cost_variables,
+                                  acs_rent_percent_income_variables),
+                          year = 2020,
                           sumfile = sumfile,
                           state = state,
                           county=county,
                           geometry = FALSE) %>%
   dplyr::select(-moe) %>%
-  spread(key = 'variable', value = 'estimate')
+  pivot_wider(names_from = variable, values_from = estimate)%>%
+  dplyr::rename("White Alone"=3,
+                "Black Alone"=4,
+                "American Indian Alone"=5,
+                "Asian Alone"=6,
+                "Pacific Islander/Hawaiian Alone"=7,
+                "Other Alone"=8,
+                "Total Pop Hispanic Tables"=9,
+                "Total Non-Hispanic"=10,
+                "Non-Hispanic White"=11,
+                "Total Hispanic"=12)
+
+Durham_Block_Group_Join_ACS_Pre<-get_acs(geography = geoLevel,
+                      variables = c("B01001_001"),
+                      year=2020,
+                      county=county,
+                      state=state,
+                      geometry = TRUE)%>%
+  left_join(acs_call_table, by="GEOID")%>%
+  dplyr::select(-3,-6)%>%
+  dplyr::rename("NAME"=2,
+                "Total Population"=3)
 
 
+  
+  Durham_Block_Group_Join_ACS<-Durham_Block_Group_Join_ACS_Pre%>% st_as_sf()%>%
+    st_transform(4326) %>%
+    st_join(dev_tiers, left=TRUE,largest=TRUE, join=st_contains())
+  
+  
+  st_write(Durham_Block_Group_Join_ACS, "Durham_BlockGroup_2019_ACS.geojson")
+  
+  
+  
+  
+  
+  
 ggplot() + 
   #geom_sf(data = res) + 
   geom_sf(data=dev_tiers, aes(fill=TYPE),alpha=I(0.5))
