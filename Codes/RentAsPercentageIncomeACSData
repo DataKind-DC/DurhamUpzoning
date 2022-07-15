@@ -1,0 +1,74 @@
+from cgi import test
+from re import T
+import pandas as pd
+import numpy as np
+
+
+#calculates the percentage of total responses that fall within each
+#gross rent as percentage of household income category 
+
+def percent_of_total(TYPE, start, end, group_tier): 
+    if (start == 0 and end == 10): 
+        indiv_within_range = group_tier.loc[TYPE]["Less than 10.0 percent"]
+    elif start == 10 and end == 14.9:
+        indiv_within_range = group_tier.loc[TYPE]["10.0 to 14.9 percent"]
+    elif start == 15 and end == 19.9:
+        indiv_within_range = group_tier.loc[TYPE]["15.0 to 19.9 percent"]
+    elif start == 20 and end == 24.9:
+        indiv_within_range = group_tier.loc[TYPE]["20.0 to 24.9 percent"]
+    elif start == 25 and end == 29.9:
+        indiv_within_range = group_tier.loc[TYPE]["25.0 to 29.9 percent"]
+    elif start == 30 and end == 34.9:
+        indiv_within_range = group_tier.loc[TYPE]["30.0 to 34.9 percent"]
+    elif start == 35 and end == 35.9: 
+        indiv_within_range = group_tier.loc[TYPE]["35.0 to 39.9 percent"]
+    elif start == 40 and end == 49.9:
+        indiv_within_range = group_tier.loc[TYPE]["40.0 to 49.9 percent"]
+    elif start == 50: 
+        indiv_within_range = group_tier.loc[TYPE]["50.0 percent or more"]
+    else: 
+        return "Enter valid range from ACS data" 
+    total = group_tier.loc[TYPE]["Total: GROSS RENT AS A PERCENTAGE OF HOUSEHOLD INCOME IN THE PAST 12 MONTHS"]
+    percent = (indiv_within_range/total)*100
+    return percent
+    
+    
+ #creates tables by tier(urban and suburban) and ACS data year
+  def create_table(year, TYPE):  
+    if year == 2020: 
+        df = pd.read_csv("Durham_BlockGroup_2020_ACS.csv")
+    elif year == 2015: 
+        df = pd.read_csv("Durham_BlockGroup_2015_ACS.csv")
+    else: 
+        return "Enter either 2015 or 2020 for ACS data"
+    
+    group_tier = df.groupby('TYPE').sum()
+    
+    data = [["Less than 10.0 percent", percent_of_total(TYPE, 0, 10, group_tier)], 
+             ["10.0 to 14.9 percent", percent_of_total(TYPE, 10, 14.9, group_tier)],
+             ["15.0 to 19.9 percent", percent_of_total(TYPE, 15, 19.9, group_tier)], 
+             ["20.0 to 24.9 percent",  percent_of_total(TYPE, 20, 24.9, group_tier)], 
+             ["25.0 to 29.9 percent", percent_of_total(TYPE, 25, 29.9, group_tier)],
+             ["30.0 to 34.9 percent", percent_of_total(TYPE, 30, 34.9, group_tier)],
+             ["35.0 to 39.9 percent",  percent_of_total(TYPE, 35, 35.9, group_tier)],
+             ["40.0 to 49.9 percent", percent_of_total(TYPE, 40, 49.9, group_tier)], 
+             ["50.0 percent or more",  percent_of_total(TYPE, 50, 0, group_tier)]]
+            
+    result = pd.DataFrame(data, columns = ["Label", "Percentage of Indivs within Range"])
+    print(result)
+    
+print("Suburban in 2020") 
+create_table(2020, "SUBURBAN")
+
+print("Urban in 2020") 
+create_table(2020, "URBAN")
+
+print("Suburban in 2015") 
+create_table(2015, "SUBURBAN")
+
+print("Urban in 2015") 
+create_table(2015, "URBAN")
+
+##this is my first time using pandas or any data analysis software 
+##so please let me know if there's anything i can do more efficiently! 
+##thanks!
