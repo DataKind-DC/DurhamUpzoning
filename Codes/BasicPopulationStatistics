@@ -1,0 +1,47 @@
+#calculates basic population and race totals and mimics the 
+# table from in-progress findings document using Census 2020 data 
+# for Census and ACS Dataset comparison.
+ 
+import pandas as pd
+data_frame = pd.read_csv("Durham_BlockGroup_2020_ACS.csv")
+
+
+#type can be: SUBURBAN, URBAN, DOWNTOWN, RURAL
+#race can be: hipspanic, white, black, all
+#function returns values that are used for pop/race totals across blocks
+def calculate_percentage(TYPE, race): 
+    total_pop = data_frame.loc[(data_frame["TYPE"] == TYPE), ["Total Population"]]
+    total_pop = total_pop.sum()
+    if race == "all": 
+        return total_pop[0]
+    elif race == "hispanic": 
+        hispanic = data_frame.loc[(data_frame["TYPE"] == TYPE), ["Hispanic or Latino:"]]
+        return hispanic.divide(total_pop[0]).sum()[0]*100
+    elif race == "white": 
+        white = data_frame.loc[(data_frame["TYPE"] == TYPE), ["White alone"]]
+        return white.divide(total_pop[0]).sum()[0]*100
+    elif race == "black": 
+        black = data_frame.loc[(data_frame["TYPE"] == TYPE), ["Black or African American alone"]]
+        return black.divide(total_pop[0]).sum()[0]*100
+        
+ 
+ # basic population and race totals across the blocks in each tier
+total_sub = calculate_percentage("SUBURBAN", "all")
+total_urban = calculate_percentage("URBAN", "all")
+total_rural = calculate_percentage("RURAL", "all")
+total_downtwn = calculate_percentage("DOWNTOWN", "all")
+
+dict = {'TYPE':["suburban", "urban", "rural", "downtown"],
+        'Total Pop': [total_sub,total_urban, total_rural, total_downtwn],
+        
+        'Percent White':[calculate_percentage("SUBURBAN", "white"), calculate_percentage("URBAN", "white"),
+                         calculate_percentage("RURAL", "white"), calculate_percentage("DOWNTOWN", "white")],
+        
+        'Percent Black': [calculate_percentage("SUBURBAN", "black"), calculate_percentage("URBAN", "black"),
+                          calculate_percentage("RURAL", "black"), calculate_percentage("DOWNTOWN", "black")],
+                          
+        'Percent Hispanic': [calculate_percentage("SUBURBAN", "hispanic"), calculate_percentage("URBAN", "hispanic"), 
+                            calculate_percentage("RURAL", "hispanic"), calculate_percentage("DOWNTOWN", "hispanic")]}
+    
+df = pd.DataFrame(dict)
+print(df)
